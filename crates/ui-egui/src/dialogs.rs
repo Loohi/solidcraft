@@ -755,20 +755,15 @@ impl Dialog {
         // text it edits, not its path.)
         let preselection: &[Sel] = if matches!(d.kind, Kind::Text(_)) { &[] } else { &s.selection };
         for sel in preselection {
-            // A component picked in the browser stands for its bodies, children included, in Move
-            // only: other dialogs (Remove, Combine, joints) keep taking only what was picked.
-            if let Sel::Occurrence { path } = sel
+            // A component picked in the browser is moved as a placement in Move only: other
+            // dialogs (Remove, Combine, joints) keep taking only what was picked.
+            if let Sel::Occurrence { .. } = sel
                 && matches!(d.kind, Kind::Move { .. })
             {
-                if let Some(inp) = d.inputs.iter_mut().find(|i| i.accept == BODIES && (i.multi || i.items.is_empty()))
-                    && let Ok(names) = s.occurrence_bodies(path, true)
+                if let Some(inp) = d.inputs.first_mut()
+                    && !inp.items.contains(sel)
                 {
-                    for name in names {
-                        let b = Sel::Body { name };
-                        if !inp.items.contains(&b) {
-                            inp.items.push(b);
-                        }
-                    }
+                    inp.items.push(sel.clone());
                 }
                 continue;
             }
@@ -3453,7 +3448,7 @@ fn dialog_commands(app: &SolveApp, d: &Dialog) -> Result<Vec<(String, Value)>, S
             };
             ("inspect.section", json!({"plane": plane, "offset": offset, "flip": flip}))
         }
-        Kind::Move { .. } => return Ok(vec![("solid.move".into(), crate::dialogs_move::params(app, d)?)]),
+        Kind::Move { .. } => return crate::dialogs_move::commands(app, d),
         Kind::Hole { diameter, depth, kind, cb_diameter, cb_depth, cs_diameter, cs_angle, opts } => {
             need(0, if opts.multiple { "sketch points" } else { "a face position" })?;
             let ty = match *kind {

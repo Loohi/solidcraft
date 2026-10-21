@@ -252,18 +252,42 @@ fn a_body_dropped_on_a_bodies_folder_moves_into_that_component() {
     assert_eq!(owner(&h, "Pin"), 0, "Pin moved back into the root component");
 }
 
+/// Where a placement's first body sits (world space, min X).
+fn placement_x(h: &Harness, path: &[u64]) -> f64 {
+    let name = h.app.session.occurrence_bodies(path, true).unwrap()[0].clone();
+    h.app.session.world_state().body(&name).unwrap().mesh().bounds().min.x
+}
+
 #[test]
-fn move_takes_the_bodies_of_a_component_picked_in_the_browser() {
-    let (mut h, _, _, second) = fixture();
+fn move_of_a_picked_component_moves_only_that_placement() {
+    let (mut h, _, first, second) = fixture();
+    let (before_first, before_second) = (placement_x(&h, &[first]), placement_x(&h, &[second]));
     click(&mut h, &[second], "row");
     h.app.start("solid.move");
-    let d = h.app.dialog.as_ref().unwrap();
-    let want = h.app.session.occurrence_bodies(&[second], true).unwrap();
-    assert!(!want.is_empty());
-    let got: Vec<String> = d.inputs[0].items.iter().filter_map(|x| if let Sel::Body { name } = x { Some(name.clone()) } else { None }).collect();
-    assert_eq!(got, want, "Move takes the picked component's bodies");
-    let params = crate::dialogs_move::params(&h.app, d).unwrap();
-    assert_eq!(params["bodies"], json!(want));
+    let mut d = h.app.dialog.clone().unwrap();
+    assert_eq!(d.inputs[0].items, vec![Sel::Occurrence { path: vec![second] }], "Move takes the picked component");
+    if let crate::dialogs::Kind::Move { x, .. } = &mut d.kind {
+        *x = "7 mm".into();
+    }
+    for (command, params) in crate::dialogs_move::commands(&h.app, &d).unwrap() {
+        assert_eq!(command, "occurrence.move");
+        h.app.run(&command, params).unwrap();
+    }
+    assert!((placement_x(&h, &[second]) - before_second - 7.0).abs() < 1e-6, "the picked placement moved 7 mm");
+    assert!((placement_x(&h, &[first]) - before_first).abs() < 1e-6, "the other placement stayed");
+}
+
+#[test]
+fn move_of_picked_bodies_still_runs_solid_move() {
+    let (mut h, _, _, second) = fixture();
+    let body = h.app.session.occurrence_bodies(&[second], true).unwrap()[0].clone();
+    h.app.run("select.set", json!({"items":[Sel::Body{name:body.clone()}]})).unwrap();
+    h.app.start("solid.move");
+    let d = h.app.dialog.clone().unwrap();
+    let commands = crate::dialogs_move::commands(&h.app, &d).unwrap();
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].0, "solid.move");
+    assert_eq!(commands[0].1["bodies"], json!([body]));
 }
 
 #[test]
