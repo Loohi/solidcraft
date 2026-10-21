@@ -755,6 +755,20 @@ impl Dialog {
         // text it edits, not its path.)
         let preselection: &[Sel] = if matches!(d.kind, Kind::Text(_)) { &[] } else { &s.selection };
         for sel in preselection {
+            // A component picked in the browser stands for its bodies, children included.
+            if let Sel::Occurrence { path } = sel {
+                if let Some(inp) = d.inputs.iter_mut().find(|i| i.accept == BODIES && (i.multi || i.items.is_empty()))
+                    && let Ok(names) = s.occurrence_bodies(path, true)
+                {
+                    for name in names {
+                        let b = Sel::Body { name };
+                        if !inp.items.contains(&b) {
+                            inp.items.push(b);
+                        }
+                    }
+                }
+                continue;
+            }
             let as_body = match sel {
                 Sel::Face { body, .. } | Sel::Edge { body, .. } | Sel::Vertex { body, .. } => Some(Sel::Body { name: body.to_string() }),
                 _ => None,

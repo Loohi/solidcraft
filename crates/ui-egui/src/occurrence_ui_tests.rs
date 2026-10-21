@@ -251,3 +251,17 @@ fn a_body_dropped_on_a_bodies_folder_moves_into_that_component() {
     h.frames(3);
     assert_eq!(owner(&h, "Pin"), 0, "Pin moved back into the root component");
 }
+
+#[test]
+fn move_takes_the_bodies_of_a_component_picked_in_the_browser() {
+    let (mut h, _, _, second) = fixture();
+    click(&mut h, &[second], "row");
+    h.app.start("solid.move");
+    let d = h.app.dialog.as_ref().unwrap();
+    let want = h.app.session.occurrence_bodies(&[second], true).unwrap();
+    assert!(!want.is_empty());
+    let got: Vec<String> = d.inputs[0].items.iter().filter_map(|x| if let Sel::Body { name } = x { Some(name.clone()) } else { None }).collect();
+    assert_eq!(got, want, "Move takes the picked component's bodies");
+    let params = crate::dialogs_move::params(&h.app, d).unwrap();
+    assert_eq!(params["bodies"], json!(want));
+}
