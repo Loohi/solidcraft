@@ -755,8 +755,11 @@ impl Dialog {
         // text it edits, not its path.)
         let preselection: &[Sel] = if matches!(d.kind, Kind::Text(_)) { &[] } else { &s.selection };
         for sel in preselection {
-            // A component picked in the browser stands for its bodies, children included.
-            if let Sel::Occurrence { path } = sel {
+            // A component picked in the browser stands for its bodies, children included, in Move
+            // only: other dialogs (Remove, Combine, joints) keep taking only what was picked.
+            if let Sel::Occurrence { path } = sel
+                && matches!(d.kind, Kind::Move { .. })
+            {
                 if let Some(inp) = d.inputs.iter_mut().find(|i| i.accept == BODIES && (i.multi || i.items.is_empty()))
                     && let Ok(names) = s.occurrence_bodies(path, true)
                 {

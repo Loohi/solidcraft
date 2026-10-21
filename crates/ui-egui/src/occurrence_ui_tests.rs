@@ -265,3 +265,15 @@ fn move_takes_the_bodies_of_a_component_picked_in_the_browser() {
     let params = crate::dialogs_move::params(&h.app, d).unwrap();
     assert_eq!(params["bodies"], json!(want));
 }
+
+#[test]
+fn a_picked_component_does_not_fill_other_dialogs_bodies() {
+    let (mut h, _, _, second) = fixture();
+    click(&mut h, &[second], "row");
+    for id in ["solid.remove", "solid.combine"] {
+        h.app.start(id);
+        let d = h.app.dialog.as_ref().unwrap();
+        assert!(d.inputs.iter().all(|i| i.items.is_empty()), "{id} takes no bodies from a picked component");
+        h.app.dialog = None;
+    }
+}
